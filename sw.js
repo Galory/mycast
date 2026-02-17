@@ -17,6 +17,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  if (e.request.url.includes('/api/')) return;
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );
