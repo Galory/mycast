@@ -143,7 +143,7 @@ function savePodcasts() { localStorage.setItem('mc_podcasts', JSON.stringify(pod
 // ========== RSS Parser ==========
 async function fetchFeed(url) {
   // Use a CORS proxy for cross-origin RSS feeds
-  const proxyUrl = 'https://cors-proxy.996377370a.workers.dev/?url=' + encodeURIComponent(url);
+  const proxyUrl = '/api/proxy?url=' + encodeURIComponent(url);
   const resp = await fetch(proxyUrl);
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   const text = await resp.text();
