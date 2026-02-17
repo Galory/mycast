@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MyCast">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231a1a2e' width='100' height='100' rx='20'/><text y='68' x='50' text-anchor='middle' font-size='50'>🎧</text></svg>">
+<title>MyCast</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0a;--card:#161620;--card2:#1e1e2e;--accent:#6c5ce7;--accent2:#a29bfe;--text:#e8e8f0;--text2:#888;--radius:14px}
+html,body{height:100%;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+/* Layout */
+#app{display:flex;flex-direction:column;height:100%;height:100dvh;padding:env(safe-area-inset-top) 0 0 0}
+.header{padding:16px 20px 8px;flex-shrink:0}
+.header h1{font-size:28px;font-weight:700}
+.header-row{display:flex;align-items:center;justify-content:space-between}
+.tab-bar{display:flex;gap:8px;padding:4px 20px 8px;flex-shrink:0}
+.tab{padding:6px 16px;border-radius:20px;font-size:14px;border:none;background:var(--card);color:var(--text2);font-weight:500;cursor:pointer}
+.tab.active{background:var(--accent);color:#fff}
+
+/* Scrollable content */
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 160px}
+
+/* Podcast list */
+.podcast-card{display:flex;align-items:center;gap:14px;padding:14px;background:var(--card);border-radius:var(--radius);margin-bottom:10px;cursor:pointer;transition:background .15s}
+.podcast-card:active{background:var(--card2)}
+.podcast-art{width:56px;height:56px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden;flex-shrink:0}
+.podcast-art img{width:100%;height:100%;object-fit:cover}
+.podcast-info{flex:1;min-width:0}
+.podcast-info h3{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.podcast-info p{font-size:13px;color:var(--text2);margin-top:2px}
+.delete-btn{background:none;border:none;color:#e74c3c;font-size:20px;padding:8px;cursor:pointer;opacity:0.6}
+.delete-btn:hover{opacity:1}
+
+/* Episode list */
+.ep-back{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--accent2);border:none;background:none;padding:8px 0;cursor:pointer;margin-bottom:8px}
+.ep-card{padding:14px;background:var(--card);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:background .15s}
+.ep-card:active{background:var(--card2)}
+.ep-card.playing{border-left:3px solid var(--accent)}
+.ep-card h4{font-size:15px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ep-meta{font-size:12px;color:var(--text2);margin-top:6px;display:flex;gap:12px}
+.now-playing-badge{font-size:11px;color:var(--accent2);margin-top:4px}
+
+/* Add form */
+.add-section{padding:4px 0}
+.add-section input{width:100%;padding:14px 16px;border-radius:var(--radius);border:1px solid #333;background:var(--card);color:var(--text);font-size:15px;outline:none}
+.add-section input:focus{border-color:var(--accent)}
+.add-btn{width:100%;padding:14px;border-radius:var(--radius);border:none;background:var(--accent);color:#fff;font-size:16px;font-weight:600;margin-top:10px;cursor:pointer}
+.add-btn:disabled{opacity:0.4}
+.add-btn.loading{opacity:0.6}
+.preset-list{margin-top:16px}
+.preset{display:block;width:100%;text-align:left;padding:12px 16px;background:var(--card);border:none;color:var(--text);font-size:14px;border-radius:var(--radius);margin-bottom:6px;cursor:pointer}
+.preset:active{background:var(--card2)}
+.error-msg{color:#e74c3c;font-size:13px;margin-top:8px}
+
+/* Player */
+.player-mini{position:fixed;bottom:0;left:0;right:0;background:rgba(22,22,32,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:none;cursor:pointer;border-top:1px solid rgba(255,255,255,0.06)}
+.player-mini.show{display:block}
+.mini-row{display:flex;align-items:center;gap:12px}
+.mini-title{flex:1;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-btn{background:none;border:none;color:var(--text);font-size:22px;padding:4px 6px;cursor:pointer}
+.mini-progress{height:2px;background:#333;border-radius:1px;margin-top:8px}
+.mini-progress-bar{height:100%;background:var(--accent);border-radius:1px;transition:width .3s}
+
+/* Full player */
+.player-full{position:fixed;inset:0;background:var(--bg);z-index:100;display:none;flex-direction:column;padding:env(safe-area-inset-top) 20px calc(20px + env(safe-area-inset-bottom))}
+.player-full.show{display:flex}
+.pf-close{align-self:center;background:none;border:none;color:var(--text2);font-size:28px;padding:12px;cursor:pointer}
+.pf-art{width:260px;height:260px;border-radius:20px;background:linear-gradient(135deg,rgba(108,92,231,0.3),rgba(162,155,254,0.15));margin:auto;display:flex;align-items:center;justify-content:center;font-size:72px}
+.pf-title{font-size:18px;font-weight:700;text-align:center;margin:24px 0 4px;line-height:1.4;max-height:76px;overflow:hidden}
+.pf-slider-wrap{padding:0 4px;margin-top:20px}
+.pf-slider{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:#333;outline:none}
+.pf-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent2);cursor:pointer}
+.pf-times{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-top:4px}
+.pf-controls{display:flex;align-items:center;justify-content:center;gap:32px;margin-top:24px}
+.pf-btn{background:none;border:none;color:var(--text);cursor:pointer}
+.pf-btn.small{font-size:28px}
+.pf-btn.big{font-size:64px}
+.pf-speed{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:20px}
+.speed-chip{padding:5px 10px;border-radius:14px;border:none;font-size:12px;font-weight:600;background:var(--card);color:var(--text2);cursor:pointer}
+.speed-chip.active{background:var(--accent);color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-row"><h1>MyCast</h1></div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showView('podcasts')">播客</button>
+    <button class="tab" onclick="showView('add')">+ 添加</button>
+  </div>
+  <div class="content" id="main-content"></div>
+</div>
+
+<!-- Mini Player -->
+<div class="player-mini" id="miniPlayer" onclick="openFullPlayer()">
+  <div class="mini-row">
+    <span style="font-size:20px">🎧</span>
+    <span class="mini-title" id="miniTitle"></span>
+    <button class="mini-btn" id="miniPlayBtn" onclick="event.stopPropagation();togglePlay()">⏸</button>
+    <button class="mini-btn" onclick="event.stopPropagation();skip(15)">⏩</button>
+  </div>
+  <div class="mini-progress"><div class="mini-progress-bar" id="miniProg"></div></div>
+</div>
+
+<!-- Full Player -->
+<div class="player-full" id="fullPlayer">
+  <button class="pf-close" onclick="closeFullPlayer()">⌄</button>
+  <div class="pf-art">🎙️</div>
+  <div class="pf-title" id="pfTitle">未在播放</div>
+  <div class="pf-slider-wrap">
+    <input type="range" class="pf-slider" id="pfSlider" min="0" max="100" value="0" oninput="seekTo(this.value)">
+    <div class="pf-times"><span id="pfCur">0:00</span><span id="pfRem">0:00</span></div>
+  </div>
+  <div class="pf-controls">
+    <button class="pf-btn small" onclick="skip(-15)">⏪</button>
+    <button class="pf-btn big" id="pfPlayBtn" onclick="togglePlay()">⏸</button>
+    <button class="pf-btn small" onclick="skip(15)">⏩</button>
+  </div>
+  <div class="pf-speed" id="speedBar"></div>
+</div>
+
+<script>
+// ========== State ==========
+let podcasts = JSON.parse(localStorage.getItem('mc_podcasts') || '[]');
+let currentView = 'podcasts';
+let viewingPodcast = null;
+let audio = new Audio();
+let currentEp = null;
+let playbackRate = parseFloat(localStorage.getItem('mc_rate') || '1');
+audio.playbackRate = playbackRate;
+
+// ========== Persistence ==========
+function savePodcasts() { localStorage.setItem('mc_podcasts', JSON.stringify(podcasts)); }
+
+// ========== RSS Parser ==========
+async function fetchFeed(url) {
+  // Use a CORS proxy for cross-origin RSS feeds
+  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+  const resp = await fetch(proxyUrl);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const text = await resp.text();
+  const doc = new DOMParser().parseFromString(text, 'text/xml');
+  const ch = doc.querySelector('channel');
+  if (!ch) throw new Error('无效的 RSS Feed');
+
+  const title = ch.querySelector(':scope > title')?.textContent || 'Unknown';
+  let artwork = '';
+  const ituImg = ch.querySelector('image[href]');
+  if (ituImg) artwork = ituImg.getAttribute('href');
+  if (!artwork) {
+    const img = ch.querySelector(':scope > image > url');
+    if (img) artwork = img.textContent;
+  }
+
+  const items = ch.querySelectorAll('item');
+  const episodes = [];
+  items.forEach(item => {
+    const enc = item.querySelector('enclosure[url]');
+    if (!enc) return;
+    const epTitle = item.querySelector('title')?.textContent || '';
+    const desc = item.querySelector('description')?.textContent || '';
+    const audioURL = enc.getAttribute('url');
+    const pubDate = item.querySelector('pubDate')?.textContent || '';
+    const dur = item.getElementsByTagNameNS('*', 'duration')[0]?.textContent || '';
+    episodes.push({ id: crypto.randomUUID(), title: epTitle, description: desc, audioURL, pubDate, duration: dur });
+  });
+
+  return { id: crypto.randomUUID(), title, feedURL: url, artworkURL: artwork, episodes };
+}
+
+// ========== Views ==========
+function showView(view) {
+  currentView = view;
+  viewingPodcast = null;
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && view === 'podcasts') || (i === 1 && view === 'add')));
+  render();
+}
+
+function render() {
+  const c = document.getElementById('main-content');
+  if (currentView === 'podcasts' && viewingPodcast !== null) {
+    renderEpisodes(c);
+  } else if (currentView === 'podcasts') {
+    renderPodcastList(c);
+  } else if (currentView === 'add') {
+    renderAddForm(c);
+  }
+}
+
+function renderPodcastList(c) {
+  if (podcasts.length === 0) {
+    c.innerHTML = '<div style="text-align:center;color:var(--text2);padding:60px 20px"><p style="font-size:48px;margin-bottom:16px">🎙️</p><p>还没有订阅播客</p><p style="margin-top:8px">点击「+ 添加」开始</p></div>';
+    return;
+  }
+  c.innerHTML = podcasts.map((p, i) => `
+    <div class="podcast-card" onclick="openPodcast(${i})">
+      <div class="podcast-art">${p.artworkURL ? '<img src="'+p.artworkURL+'" loading="lazy">' : '🎙️'}</div>
+      <div class="podcast-info"><h3>${esc(p.title)}</h3><p>${p.episodes.length} 集</p></div>
+      <button class="delete-btn" onclick="event.stopPropagation();removePodcast(${i})" title="删除">✕</button>
+    </div>
+  `).join('');
+}
+
+function renderEpisodes(c) {
+  const p = podcasts[viewingPodcast];
+  if (!p) { showView('podcasts'); return; }
+  c.innerHTML = `
+    <button class="ep-back" onclick="showView('podcasts')">← 返回</button>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div class="podcast-art" style="width:80px;height:80px;border-radius:14px;font-size:36px">${p.artworkURL ? '<img src="'+p.artworkURL+'">' : '🎙️'}</div>
+      <div><h2 style="font-size:20px;font-weight:700">${esc(p.title)}</h2><p style="font-size:13px;color:var(--text2);margin-top:4px">${p.episodes.length} 集</p></div>
+    </div>
+    ${p.episodes.map(ep => `
+      <div class="ep-card ${currentEp && currentEp.id === ep.id ? 'playing' : ''}" onclick='playEpisode(${JSON.stringify(ep).replace(/'/g,"&#39;")})'>
+        <h4>${esc(ep.title)}</h4>
+        <div class="ep-meta">
+          ${ep.pubDate ? '<span>' + formatDate(ep.pubDate) + '</span>' : ''}
+          ${ep.duration ? '<span>' + ep.duration + '</span>' : ''}
+        </div>
+        ${currentEp && currentEp.id === ep.id ? '<div class="now-playing-badge">♫ 正在播放</div>' : ''}
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderAddForm(c) {
+  c.innerHTML = `
+    <div class="add-section">
+      <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:8px">RSS 订阅地址</label>
+      <input id="feedInput" type="url" placeholder="https://example.com/feed.xml" autocapitalize="off" autocorrect="off">
+      <div id="addError" class="error-msg" style="display:none"></div>
+      <button class="add-btn" id="addBtn" onclick="addPodcast()">订阅</button>
+    </div>
+    <div class="preset-list">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px">试试这些</p>
+      <button class="preset" onclick="setFeed('https://storyfm.cn/feed/episodes')">故事FM</button>
+      <button class="preset" onclick="setFeed('https://feeds.fireside.fm/dailytalk/rss')">日谈公园</button>
+      <button class="preset" onclick="setFeed('https://feeds.fireside.fm/steve/rss')">Steve说</button>
+      <button class="preset" onclick="setFeed('https://feeds.fireside.fm/museelite/rss')">博物志</button>
+    </div>
+  `;
+}
+
+// ========== Actions ==========
+function openPodcast(i) { viewingPodcast = i; render(); }
+
+function removePodcast(i) {
+  if (!confirm('删除「' + podcasts[i].title + '」？')) return;
+  podcasts.splice(i, 1);
+  savePodcasts();
+  render();
+}
+
+function setFeed(url) { document.getElementById('feedInput').value = url; }
+
+async function addPodcast() {
+  const input = document.getElementById('feedInput');
+  const btn = document.getElementById('addBtn');
+  const err = document.getElementById('addError');
+  const url = input.value.trim();
+  if (!url) return;
+
+  btn.disabled = true; btn.textContent = '加载中…'; btn.classList.add('loading');
+  err.style.display = 'none';
+
+  try {
+    const podcast = await fetchFeed(url);
+    podcasts.push(podcast);
+    savePodcasts();
+    showView('podcasts');
+  } catch (e) {
+    err.textContent = '解析失败：' + e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '订阅'; btn.classList.remove('loading');
+  }
+}
+
+// ========== Audio ==========
+function playEpisode(ep) {
+  currentEp = ep;
+  audio.src = ep.audioURL;
+  audio.playbackRate = playbackRate;
+  audio.play();
+  updateMini();
+  render();
+}
+
+function togglePlay() {
+  if (!currentEp) return;
+  if (audio.paused) { audio.play(); } else { audio.pause(); }
+  updatePlayBtns();
+}
+
+function skip(sec) {
+  if (!currentEp) return;
+  audio.currentTime = Math.max(0, Math.min(audio.currentTime + sec, audio.duration || 0));
+}
+
+function seekTo(val) {
+  if (!audio.duration) return;
+  audio.currentTime = (val / 100) * audio.duration;
+}
+
+function setSpeed(rate) {
+  playbackRate = rate;
+  audio.playbackRate = rate;
+  localStorage.setItem('mc_rate', rate);
+  renderSpeedBar();
+}
+
+// ========== Player UI ==========
+function updateMini() {
+  const m = document.getElementById('miniPlayer');
+  if (currentEp) {
+    m.classList.add('show');
+    document.getElementById('miniTitle').textContent = currentEp.title;
+  } else {
+    m.classList.remove('show');
+  }
+  updatePlayBtns();
+}
+
+function updatePlayBtns() {
+  const icon = audio.paused ? '▶' : '⏸';
+  document.getElementById('miniPlayBtn').textContent = icon;
+  document.getElementById('pfPlayBtn').textContent = audio.paused ? '▶' : '⏸';
+}
+
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  document.getElementById('miniProg').style.width = pct + '%';
+  document.getElementById('pfSlider').value = pct;
+  document.getElementById('pfCur').textContent = fmtTime(audio.currentTime);
+  document.getElementById('pfRem').textContent = '-' + fmtTime(audio.duration - audio.currentTime);
+});
+audio.addEventListener('play', updatePlayBtns);
+audio.addEventListener('pause', updatePlayBtns);
+
+function openFullPlayer() {
+  document.getElementById('pfTitle').textContent = currentEp?.title || '未在播放';
+  document.getElementById('fullPlayer').classList.add('show');
+  renderSpeedBar();
+}
+function closeFullPlayer() {
+  document.getElementById('fullPlayer').classList.remove('show');
+}
+
+function renderSpeedBar() {
+  const rates = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+  document.getElementById('speedBar').innerHTML = rates.map(r =>
+    `<button class="speed-chip ${playbackRate===r?'active':''}" onclick="setSpeed(${r})">${r===1?'1':r}x</button>`
+  ).join('');
+}
+
+// ========== Utils ==========
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmtTime(s) { if(!s||isNaN(s))return '0:00'; const m=Math.floor(s/60),ss=Math.floor(s%60); return m+':'+(ss<10?'0':'')+ss; }
+function formatDate(s) { try { const d = new Date(s); return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0'); } catch(e) { return s; } }
+
+// ========== Init ==========
+render();
+renderSpeedBar();
+
+// Register SW
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
